@@ -5,9 +5,6 @@
 /* No guarantee whatsoever is expressed or implied by the distribution of */
 /* this code.  Permission is given to distribute this code provided that  */
 /* this introductory message is not removed and no monies are exchanged.  */
-/* Software written by Gerard J. Holzmann.  For tool documentation see:   */
-/*             http://spinroot.com/swarm/                                 */
-/* Send all bug-reports and/or questions to: bugs@spinroot.com            */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +22,7 @@
 #define min(a,b)	(((a)<=(b))?(a):(b))
 #define MAXLINE		(2048)
 
-int cnt, just_once;
+int cntr, just_once;
 
 double maxmem = 512.*1024.*1024;/* defailt memory limit for bitstate, per run 512 MB */
 int r_seed = 123;		/* seed for random nr generator */
@@ -482,7 +479,7 @@ gen_runs(FILE *fd, int w, long d, long k)
 	}
 
 	sum_time += next_t;			/* total time used */
-	cnt++;					/* total number of runs */
+	cntr++;					/* total number of runs */
 	x = (x >= max_mode) ? 1 : (x+1);	/* pan executable to use */
 
 	if (no_bitstate == max_mode)	/* all jobs are non-bitstate -- should use different next_t assumption */
@@ -514,7 +511,7 @@ postlude(FILE *fd)
 	Remote *rm;
 
 	fprintf(stderr, "swarm: %d runs, avg time per cpu %.1f sec\n",
-		cnt, sum_time / (float) maxcpu);
+		cntr, sum_time / (float) maxcpu);
 
 	time_left = ((maxcpu * sec_available) - sum_time)/(double) maxcpu; /* per cpu */
 
