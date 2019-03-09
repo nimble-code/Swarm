@@ -1,0 +1,296 @@
+.TH SWARM 1 03/27/10
+.UC
+.SH NAME
+swarm \- Spin verification script generator
+.SH SYNOPSIS
+.B swarm
+[
+.I "config_file"
+] [
+.I options
+]*
+.SH DESCRIPTION
+The
+.I swarm
+command generates a script that performs many small and randomly different
+verification jobs in parallel, in an attempt to increase the problem coverage
+for very large verification problems.
+The tool is meant to be used on models for which a traditional run
+using exhaustive, bitstate, hash-compaction etc. verification either runs out
+of memory, or takes more time than available (e.g., days or weeks).
+Swarm uses parallelism and search diversification to reach its objectives.
+.PP
+The user can use a configuration file that defines
+how many CPUs are available, how much memory can be used, and how much time
+is available, among a range of other optional parameter settings.
+Based on these settings,
+.IR swarm
+generates the script that runs as many independent jobs as possible,
+without exceeding the user-defined constraints.
+
+.SH OPTIONS
+By default,
+.IR swarm
+generates a verification script,
+which is written into a file with the extension \fI.swarm\fR and with
+the basename equal to that of the
+.IR spin
+model being verified.
+For instance:
+.nf
+
+	$ swarm -f model.pml	# generate the script
+	$ ./model.swarm		# execute it
+
+.fi
+The script accepts a small number of options that are detailed below.
+.sp
+In the example above, we have set only one required parameter: the name of the
+model file.  A number of other options is available to define the details of the swarm
+verification. The easiest is to use a configuration file to record all these options.
+A default configuration file can be generated with the \-l parameter:
+.nf
+
+	$ swarm -l > swarm.lib	# configuration file -- which can be edited
+	$ swarm swarm.lib	# use the settings from this file to generate the script
+
+.fi
+Options set on the command-line before the \-l parameter appears
+(e.g., the number of CPUs to be used,
+or the maximum runtime) are used to define the corresponding settings in the
+configuration file that is generated.
+.Sp
+The default configuration file may look as follows.
+.nf
+
+	# Swarm Version 2.2 -- 15 October 2009
+	#
+	# Default Swarm configuration file
+	#
+	# there are four main parts to this file:
+	#       ranges, limits, compilation options, and runtime options
+	# the default settings for each are shown below -- edit as needed
+	# comments start with a # symbol
+	# This version of swarm requires Spin Version 5.2 or later
+	
+	# See the documentation for the additional use of
+	# environment variables CCOMMON, RCOMMON, and SCOMMON
+	# http://spinroot.com/swarm/
+	
+	# range
+	k       1       4       # optional: to restrict min and max nr of hash functions
+	
+	# limits
+	d       10000           # optional: to restrict the max search depth
+	cpus    2               # nr available cpus (exact)
+	memory  512M            # max memory per run; M=megabytes, G=gigabytes
+	time    60m             # max time for all runs; h=hours, m=min, s=sec, d=days
+	hash    1.5             # hash-factor (estimate)
+	vector  512             # nr of bytes per state (estimate)
+	speed   250000          # nr states explored per second (estimate)
+	file    model.pml       # file with the spin model to be verified
+	
+	# compilation options (each line defines one complete search mode)
+
+	-DBITSTATE -DPUTPID		# basic dfs
+	-DBITSTATE -DPUTPID -DREVERSE	# reversed process ordering
+	-DBITSTATE -DPUTPID -DT_REVERSE	# reversed transition ordering
+	-DBITSTATE -DPUTPID -DREVERSE -DT_REVERSE	# both
+
+	-DBITSTATE -DPUTPID -DP_RAND -DT_RAND	# same series with randomization
+	-DBITSTATE -DPUTPID -DP_RAND -DT_RAND -DT_REVERSE
+	-DBITSTATE -DPUTPID -DP_RAND -DT_RAND -DREVERSE
+	-DBITSTATE -DPUTPID -DP_RAND -DT_RAND -DREVERSE -DT_REVERSE
+
+	-DBITSTATE -DPUTPID -DBCS	# with bounded context switching
+	-DBITSTATE -DPUTPID -DBCS -DREVERSE
+	-DBITSTATE -DPUTPID -DBCS -DT_REVERSE
+	-DBITSTATE -DPUTPID -DBCS -DREVERSE -DT_REVERSE
+
+	# runtime options (one line)
+	-c1 -x -n
+
+.fi
+Remote executions can be defined by prefixing the number of available cpus
+in the configuration file with a machine name. For instance:
+.nf
+
+	cpus	3	nada:4	niks:5
+
+.fi
+defines that 3 local cpus can be used, 4 cpus on the machine nada, and
+5 additional cpus on the machine niks. It is assumed that connections
+are setup that allow for password-less ssh access to all named machines.
+.PP
+Some (though not all) options can be set on the command line. Options are
+used in the order in which they are encountered. This means that command line
+options can be used to override settings in a configuration file or vice
+versa, if both are used.
+The following command line options are recognized:
+.TP
+.B file
+read configuration parameters from
+.IR file .
+.TP
+.B \-b\fIN\fR
+sets the number of bytes per state to N (default \-b512).
+.TP
+.B \-c\fIN\fR
+sets the number of cpus available to N (default \-c2).
+.TP
+.B \-d\fIN\fR
+sets the maximum search depth to N (default \-d10000).
+.TP
+.B \-e
+allow for early termination when at least one trail file was written.
+.TP
+.B \-f \fImodel.pml\fR
+specifies the name of the file with the
+.IR spin
+model to be verified.
+.TP
+.B \-h\fIN\fR
+sets the estimated hash-factor (default -h4).
+.TP
+.B \-l
+write a default configuration file to stdout.
+.TP
+.B \-m\fIN\fR
+sets the maximum amount of memory to use per run to N, with optional
+suffix M or G, (default \-m512M).
+.TP
+.B \-n\fIN\fR
+sets the seed value for the random number generated to N (default \-n123).
+.TP
+.B \-s\fIN\fR
+sets the number of states stored per second to N (default \-s250000).
+.TP
+.B \-t\fIN\fR
+sets the number of hours available for all runs combined to N (default \-t1).
+.TP
+.B \-u\fIN\fR
+sets the minimum search depth to be used to N (default \-u128).
+.TP
+.B \-v
+verbose mode.
+.TP
+.B \-V
+print
+.IR swarm
+version number and exit.
+.sp
+The shell variable CCOMMON can be used to define standard compile time
+directives that should be used for all runs (the default setting is
+CCOMMON="-O2 -DSAFETY").
+The shell variable RCOMMON can be used to define run time parameters that
+should be used for all runs (the default is RCOMMON="").
+Shell variable SCOMMON, finally, can be used to define additional run time
+parameters for Spin itself for model generation (e.g., -m or -D...).
+.SH EXAMPLES
+A typical run of
+.IR swarm
+looks as follows (assuming the verification model in
+.IR model.pml ).
+.nf
+
+	$ swarm config_file
+	swarm: 95 runs, avg time per cpu 3599.5 sec
+	$ ./model.swarm
+
+.fi
+Without a config file, with the
+.IR spin
+model in file
+.IR model.pml ,
+and executing on
+a quad-core machine with 16 GB of memory, with a time-bound of 2 hours for the
+verification:
+.nf
+
+	$ swarm -c4 -m16G -t2 -f model.pml	# note -m16G not -m166
+	swarm: 63 runs, avg time per cpu 7199.9 sec
+	swarm: script written to model.swarm
+	$ ./model.swarm
+
+.fi
+When executed, the verification script will create four additional shell scripts,
+which by default are named script0 .. script3, one for each available cpu core,
+and populates each script with the required commands.
+Before executing those commands, the main script calls
+.IR spin
+to generate pan.c and related files, and compiles them for a range of
+different search methods. The execution of a script either stops when an error
+trail is found, or when the time limit is reached. By default, swarm assumes
+that states are analyzed at an average rate of 250,000 states per second. If
+this estimate is too high, the execution of the script will take
+proportionally more time than planned, if the estimate is too low then it will
+take less time. Once the rate is known (which if important can easily be
+determined with a small separate run in bitstate mode), it can be specified on
+the command line to improve accuracy. For instance, if the verification is
+known to execute at a rate of 100,000 states per second, the last
+.IR swarm
+command can be made more precise, as:
+.nf
+
+	$ swarm -c4 -m16G -t2 -s100000 -f model.pml
+	swarm: 57 runs, avg time per cpu 7199.9 sec
+	swarm: script written to model.swarm
+
+.fi
+Other default settings that can affect the accuracy of the runtime estimates
+used by
+.IR swarm
+in generating the script include the hash-factor (the \-h parameter or the
+.IR hash
+field in a configuration file).
+.sp
+The verification script can recognize the following three parameters when invoked:
+.IR prep ,
+.IR exec ,
+and
+.IR base \fIname\fR.
+Assuming that the script is stored in an executable file called
+.IR model.swarn :
+.nf
+
+	$ ./model.swarm base xsw	# change basename to be used for subsidiary scripts
+
+.fi
+This makes the script use xsw0, ..., xswN for the subsidiary script names,
+instead of the default script0, ..., scriptN.
+.nf
+
+	$ ./model.swarm prep		# perform setup only
+
+.fi
+performs the compilation of all required executables, and generates all the
+subsidiary execution scripts required (one per cpu used), but does not perform
+the actual execution of those scripts.
+.nf
+
+	$ ./model.swarm exec		# perform execution, but no setup
+
+.fi
+performs the execution of all scripts, assuming the setup was done
+before, including the execution of all scripts to be executed remotely
+(they are copied to the remote machines with
+.IR scp(1)
+in the
+.IR prep
+phase.
+The
+.IR prep
+and
+.IR base
+parameters can be used in combination, but it is not useful to use
+.IR base
+in combination with
+.IR exec .
+.SH SOURCE
+http://www.spinroot.com/swarm/swarm*.tar
+.SH BUGS
+bugs@spinroot.com
+.SH SEE ALSO
+.IR spin(1) ,
+.IR ssh(1) ,
+.IR scp(1)

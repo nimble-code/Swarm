@@ -1,0 +1,165 @@
+<html>
+<head>
+<title>swarm -- manual page</title>
+</head>
+<body bgcolor=#ffffff>
+<font face=tt>
+<table width=100%>
+<tr>
+<td><tt>Swarm(1)</tt></td><td align=center><tt>User Commands</tt></td><td align=right><tt>Swarm(1)</tt></td>
+</tr>
+</table>
+<h4><tt>NAME</h4>
+<ul><tt>swarm - embarrasingly parallel Spin verification script generator</ul>
+
+<h4><tt>SYNTAX</h4>
+<ul><tt>swarm [-F config_file] [option]*</ul>
+
+<h4><tt>DESCRIPTION</h4>
+<ul><tt>
+Swarm generates a script that performs many small verification
+jobs in parallel, in an attempt to increase the problem coverage
+for very large verification problems. It is meant to be used on
+models for which standard verification with exhaustive, bitstate,
+hash-compaction etc. either runs out of memory, or takes more time
+than is available (e.g., days or weeks). Swarm uses parallelism and
+search diversification to reach its objectives.
+<p>
+The user can use a configuration file to define how many processing
+cores are available, how much memory can be used, and how much time
+is available, among a range of other optional parameter settings.
+Based on this information, swarm generates the script that runs as
+many independent jobs as possible in parallel, without exceeding
+any of the user-defined constraints.
+</ul>
+
+<h4><tt>OPTIONS</h4>
+<ul><tt>
+The typical use of swarm is with the help of a configuration file
+in which all options are recorded, for instance as follows:
+<pre>
+	$ swarm -F swarm.lib > script
+	$ sh script
+</pre>
+A sample configuration file can be found in /lib/swarm/swarm.lib,
+or can be created with the command 'swarm -L'. It looks as follows.
+<pre>
+	# Swarm configuration file
+	#
+	# there are 4 main parts to this file:
+	# (1) ranges, (2) limits, (3) compilation options, and
+	# (4) runtime options
+	# the default settings for each are shown below
+	# comments start with a # symbol, fields are separated by tabs
+	
+	# ranges
+	w	20	32	# min and max -w parameter
+	d	100	10000	# min and max search depth
+	k	2	5	# min and max nr of hash functions
+	
+	# limits
+	cpus	2		# nr available cpus
+	memory	513MB	# max memory to be used; recognizes MB,GB
+	time	1h		# max time to be used; h=hr, m=min, s=sec
+	vector	500	# bytes per state, used for estimates
+	speed	250000	# states per second processed
+	file	model.pml	# file with spin model
+	
+	# compilation options (each line defines a search mode)
+	# each option currently must include -DBITSTATE
+	-DBITSTATE			# standard dfs
+	-DBITSTATE -DREVERSE	# reversed process ordering
+	-DBITSTATE -DT_REVERSE	# reversed transition ordering
+	-DBITSTATE -DRANDOMIZE=123	# randomized transition ordering
+	-DBITSTATE -DRANDOMIZE=173573	# ditto, with different seed
+	
+	# some other possible modes:
+	# -DBITSTATE -DT_REVERSE -DREVERSE	# combination
+	# -DBITSTATE -DT_REVERSE -DRANDOMIZE	# combination
+	
+	# runtime options (one line)
+	-n
+</pre>
+Some (though not all) options can also be set on the command line.
+Options are set in the order in which they are encountered.
+This means that command line options can be used to override
+settings in a configuration file or vice versa, if both are used.
+<p>
+The following command line options are recognized:
+<pre>
+	-L = create a copy of the default swarm.lib configuration file.
+	-f model_name = a required argument if no config_file is used.
+
+	-bN = the number of bytes per state(default -b500)
+	-cN = the number of cpus available (default -c1)
+	-mN = the amount of available physical mem, optional suffix M or G, (default -m512M)
+	-sN = the number of states stored per second (default -s250000)
+	-tN = the number of hours available for the runs (default -t1.0)
+	-dN = the maximum search depth (default -d10000)
+	-uN = the minimum search depth (default -u128)
+	-v  = verbose mode (default is non-verbose)
+</pre>
+The shell variable CCOMMON can be used to define standard compile time parameters that should be used for all runs (the default setting is CCOMMON="-O2 -DSAFETY").
+<br>
+The shell variable RCOMMON can be used to define run time parameters that are to be used for all runs (the default setting is RCOMMON="-n").
+</ul>
+
+<h4><tt>EXAMPLES</h4>
+<ul><tt>
+A typical run of swarm looks as follows.
+<pre>
+	$ swarm -F config_file
+	swarm: 95 runs, avg time per cpu 3599.5 sec
+	$ sh script
+</pre>
+Without a config file, with the Spin model in
+file model.pml, and executing on a quad-core
+machine with 16 GB of memory, with a time-bound
+of 2 hours for the verification:
+<pre>
+	$ swarm -c4 -m16G -t2 -f model.pml > script
+	swarm: 51 runs, avg time per cpu 7199.2 sec
+	$ sh script
+</pre>
+When executed, the last script will create four additional
+shell scripts, named script0 .. script3, one for each
+available cpu core, and populates each script with commands.
+Before executing those commands, the main script calls spin
+to generate pan.c and related files, and compiles them for
+a range of different search methods.
+The execution of a script either stops when an error trail
+is found, or when the time limit is reached. By default,
+swarm assumes that states are analyzed at an average rate
+of 250,000 states per second. If this estimate is too high,
+the execution of the script will take proportionally more
+time than planned, if the estimate is too low then it will
+take less time. Once the rate is known (which if important
+can easily be determined with a small separate run in
+bitstate mode), it can be specified on the command line to
+improve accuracy. For instance, if the verification is known
+to execute at a rate of 100,000 states per second, the last
+swarm command can be made more precise, as:
+<pre>
+	$ swarm -c4 -m16G -t2 -s100000 -f model.pml > script
+	swarm: 48 runs, avg time per cpu 7198.5 sec
+</pre>
+</ul>
+<h4><tt>FILES</h4>
+<ul><tt>/lib/swarm/swarm.lib		# sample config file</ul>
+<h4><tt>SOURCE (version 2.2 -- October 2009</h4>
+<ul><tt><a href="http://www.spinroot.com/swarm/swarm2.2.tar">swarm.tar</a></ul>
+
+<h4><tt>BUGS</h4>
+<ul><tt>bugs@spinroot.com</ul>
+
+<h4><tt>SEE ALSO</h4>
+<ul><tt><a href="http://spinroot.com/">spin</a></ul>
+
+<hr>
+<table width=100%>
+<tr><td align=left><a href="http://www.spinroot.com/">spinroot homepage</a></td>
+<td align=right>last update: 15 October, 2009</td>
+</tr>
+</table>
+</body>
+</html>
